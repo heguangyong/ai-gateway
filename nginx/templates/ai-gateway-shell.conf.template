@@ -1,0 +1,100 @@
+map_hash_bucket_size 128;
+
+map "${AI_GATEWAY_ACCESS_MODE}" $magicball_access_mode_public_granted {
+  default 0;
+  ~*^(public|public-browser|browser|open)$ 1;
+}
+
+map $http_x_magicball_shell_access $magicball_shell_header_granted {
+  default 0;
+  "${AI_GATEWAY_SHELL_ACCESS_TOKEN}" 1;
+}
+
+map $cookie_magicball_ai_gateway_shell $magicball_shell_cookie_granted {
+  default 0;
+  "${AI_GATEWAY_SHELL_ACCESS_TOKEN}" 1;
+}
+
+map $arg_magicball_shell_access $magicball_shell_arg_granted {
+  default 0;
+  "${AI_GATEWAY_SHELL_ACCESS_TOKEN}" 1;
+}
+
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  "" close;
+}
+
+map "$arg_model|$arg_endpoint_type" $magicball_channel_test_extra_args {
+  default "";
+  ~*^.*-openai-compact\|$ "&endpoint_type=openai-response-compact&stream=true";
+  ~*^.*codex.*\|$ "&endpoint_type=openai-response&stream=true";
+  ~*^gpt-5\.(4|5)\|$ "&endpoint_type=openai-response&stream=true";
+  ~*^gpt-image-.*\|$ "&endpoint_type=image-generation";
+}
+
+server {
+  listen 3000;
+  server_name _;
+  default_type text/html;
+
+  set $magicball_shell_granted 0;
+  if ($magicball_shell_header_granted = 1) {
+    set $magicball_shell_granted 1;
+  }
+  if ($magicball_shell_cookie_granted = 1) {
+    set $magicball_shell_granted 1;
+  }
+  if ($magicball_shell_arg_granted = 1) {
+    set $magicball_shell_granted 1;
+  }
+  if ($magicball_access_mode_public_granted = 1) {
+    set $magicball_shell_granted 1;
+  }
+
+  if ($magicball_shell_granted != 1) {
+    return 403 '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MagicBall shell access required</title><style>body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f8fb;color:#172033}main{max-width:680px;margin:12vh auto;padding:32px}h1{font-size:28px;margin:0 0 12px}p{font-size:16px;line-height:1.65;margin:0 0 10px}.hint{color:#5f6b7a}</style></head><body><main><h1>MagicBall shell access required</h1><p>This AI gateway is protected by MagicBall shell access.</p><p class="hint">Open the trusted shell entry point, then use the external access control to open the console. Direct browser visits are intentionally blocked in shell-only mode.</p></main></body></html>';
+  }
+
+  location ~ ^/api/channel/test/[0-9]+$ {
+    if ($magicball_shell_arg_granted = 1) {
+      add_header Set-Cookie "magicball_ai_gateway_shell=$arg_magicball_shell_access; Path=/; Max-Age=604800; Secure; HttpOnly; SameSite=None" always;
+      return 302 https://$host$uri;
+    }
+
+    proxy_pass http://new-api-backend:3000$uri?$args$magicball_channel_test_extra_args;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_cookie_flags session secure samesite=none;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
+  location / {
+    if ($magicball_shell_arg_granted = 1) {
+      add_header Set-Cookie "magicball_ai_gateway_shell=$arg_magicball_shell_access; Path=/; Max-Age=604800; Secure; HttpOnly; SameSite=None" always;
+      return 302 https://$host$uri;
+    }
+
+    proxy_pass http://new-api-backend:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_cookie_flags session secure samesite=none;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+}

@@ -1,0 +1,7 @@
+tunnel: <cloudflare-tunnel-name-or-id>
+credentials-file: /etc/cloudflared/secrets/<cloudflare-tunnel-credentials>.json
+
+ingress:
+  - hostname: <public-hostname>
+    service: http://new-api:3000
+  - service: http_status:404

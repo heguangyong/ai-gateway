@@ -1,0 +1,12 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: upservice-ai-cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/cloudflared.yml run upservice-ai-gateway
+    depends_on:
+      - new-api
+    volumes:
+      - ./cloudflared.yml:/etc/cloudflared/cloudflared.yml:ro
+      - ./secrets/cloudflared:/etc/cloudflared/secrets:ro
+

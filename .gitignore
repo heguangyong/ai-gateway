@@ -1,0 +1,10 @@
+/.env
+/cloudflared.yml
+/data/
+/logs/
+/moqui_logs/
+/secrets/
+/.sce/
+
+*.tar
+*.tgz

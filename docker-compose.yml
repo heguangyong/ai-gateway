@@ -1,0 +1,48 @@
+services:
+  new-api-backend:
+    image: calciumion/new-api:latest
+    container_name: upservice-new-api-backend
+    restart: unless-stopped
+    command: --log-dir /app/logs
+    expose:
+      - "3000"
+    volumes:
+      - ./data/new-api:/data
+      - ./logs/new-api:/app/logs
+    environment:
+      TZ: "${TZ:-Asia/Shanghai}"
+      ERROR_LOG_ENABLED: "${ERROR_LOG_ENABLED:-true}"
+      BATCH_UPDATE_ENABLED: "${BATCH_UPDATE_ENABLED:-true}"
+      NODE_NAME: "${NODE_NAME:-upservice-ai-gateway}"
+      SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET in the remote .env}"
+      http_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      https_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      HTTP_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      HTTPS_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      no_proxy: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,172.16.0.0/12,192.168.0.0/16}"
+      NO_PROXY: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,172.16.0.0/12,192.168.0.0/16}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  new-api:
+    image: nginx:1.27-alpine
+    container_name: upservice-ai-gateway-proxy
+    restart: unless-stopped
+    depends_on:
+      new-api-backend:
+        condition: service_healthy
+    ports:
+      - "${AI_GATEWAY_HOST_PORT:-33080}:3000"
+    environment:
+      AI_GATEWAY_ACCESS_MODE: "${AI_GATEWAY_ACCESS_MODE:-public}"
+      AI_GATEWAY_SHELL_ACCESS_TOKEN: "${AI_GATEWAY_SHELL_ACCESS_TOKEN:?set AI_GATEWAY_SHELL_ACCESS_TOKEN in the remote .env}"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --header=\"X-MagicBall-Shell-Access: $$AI_GATEWAY_SHELL_ACCESS_TOKEN\" -O - http://127.0.0.1:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
