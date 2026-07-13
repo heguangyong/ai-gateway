@@ -8,18 +8,20 @@ $nginxTemplate = Get-Content (Join-Path $root "nginx\templates\ai-gateway-shell.
 $envExample = Get-Content (Join-Path $root ".env.example") -Raw
 $codexImportScriptPath = Join-Path $root "scripts\import-codex-resources.ps1"
 $codexImportScript = if (Test-Path $codexImportScriptPath) { Get-Content $codexImportScriptPath -Raw } else { "" }
+$deployScript = Get-Content (Join-Path $root "scripts\deploy.ps1") -Raw
 $publicText = $readme + $cloudflared + $envExample + $compose
 $privateHostPattern = "(?<![0-9])(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.(?!0\.0/16)\d{1,3}\.\d{1,3})(?!/[0-9])"
 $localPathPattern = "[A-Za-z]:\\Users\\[^\\\s]+|[A-Za-z]:\\[^<\s]+"
 
 $checks = @(
-  [pscustomobject]@{ key = "new-api-image"; passed = $compose.Contains("calciumion/new-api:latest") },
+  [pscustomobject]@{ key = "new-api-image"; passed = $compose.Contains('${NEW_API_IMAGE:-calciumion/new-api:latest}') -and $envExample.Contains("NEW_API_IMAGE=calciumion/new-api:latest") -and $deployScript.Contains('$NewApiImage') -and $deployScript.Contains("^NEW_API_IMAGE=") },
   [pscustomobject]@{ key = "host-port"; passed = $compose.Contains('${AI_GATEWAY_HOST_PORT:-33080}:3000') },
   [pscustomobject]@{ key = "proxy-service-name-compatible"; passed = $compose.Contains("container_name: upservice-ai-gateway-proxy") },
   [pscustomobject]@{ key = "backend-is-internal"; passed = $compose.Contains("new-api-backend") -and $compose.Contains("expose:") },
   [pscustomobject]@{ key = "shell-token-required"; passed = $compose.Contains("AI_GATEWAY_SHELL_ACCESS_TOKEN") },
   [pscustomobject]@{ key = "access-mode-control"; passed = $compose.Contains('AI_GATEWAY_ACCESS_MODE: "${AI_GATEWAY_ACCESS_MODE:-public}"') -and $envExample.Contains("AI_GATEWAY_ACCESS_MODE=public") -and $nginxTemplate.Contains('$magicball_access_mode_public_granted') },
   [pscustomobject]@{ key = "session-secret-required"; passed = $compose.Contains("SESSION_SECRET") },
+  [pscustomobject]@{ key = "geoflow-admin-proxy"; passed = $compose.Contains("GEOFLOW_ADMIN_UPSTREAM") -and $nginxTemplate.Contains("location ^~ /geo_admin") -and $envExample.Contains("GEOFLOW_ADMIN_UPSTREAM=") },
   [pscustomobject]@{ key = "iframe-session-cookie-compatible"; passed = $nginxTemplate.Contains("proxy_cookie_flags session secure samesite=none") },
   [pscustomobject]@{ key = "magicball-only-fallback-403"; passed = $nginxTemplate.Contains("MagicBall shell access required") -and $nginxTemplate.Contains("return 403") },
   [pscustomobject]@{ key = "unauthenticated-403-html"; passed = $nginxTemplate.Contains("default_type text/html") -and $nginxTemplate.Contains("Direct browser visits are intentionally blocked") },

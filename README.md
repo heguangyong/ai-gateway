@@ -8,8 +8,9 @@ This public repository deliberately avoids environment-specific values such as h
 
 - Backend service: `new-api-backend:3000`
 - Proxy service: `new-api:3000`
+- Optional GEOFlow admin proxy: `/geo_admin`
 - Default host port: `33080`
-- Image: `calciumion/new-api:latest`
+- Image: configured by `NEW_API_IMAGE` (defaults to `calciumion/new-api:latest`)
 - Persistent data: `./data/new-api`
 - Runtime logs: `./logs/new-api`
 
@@ -24,6 +25,8 @@ The console access mode is controlled by `AI_GATEWAY_ACCESS_MODE` in the remote 
 
 The default is `public`. The shell-only path remains available for rollback or protected operations. When shell access opens an external browser URL with a `magicball_shell_access` query value, the proxy validates it, sets a `magicball_ai_gateway_shell` cookie with `Max-Age=604800` (one week), then redirects back to the clean URL.
 
+Set `GEOFLOW_ADMIN_UPSTREAM` in the remote `.env` to expose a same-site GEOFlow admin service at `/geo_admin` through the same access gate.
+
 ## Deploy
 
 Provide the real host, SSH port, user, and key at runtime:
@@ -31,6 +34,14 @@ Provide the real host, SSH port, user, and key at runtime:
 ```powershell
 .\scripts\deploy.ps1 -HostName <host> -Port <ssh-port> -User <ssh-user> -IdentityFile <private-key>
 ```
+
+Pin a tested image for production deployments:
+
+```powershell
+.\scripts\deploy.ps1 -HostName <host> -Port <ssh-port> -User <ssh-user> -IdentityFile <private-key> -NewApiImage ghcr.io/<owner>/new-api:sha-<commit>
+```
+
+When supplied, `-NewApiImage` is persisted as `NEW_API_IMAGE` in the remote `.env` so later Compose operations use the same image.
 
 The script uploads this project to `~/upservice-ai-gateway`, runs `docker compose pull`, and starts `new-api`. It creates or reads the ignored local files below and syncs their values into the remote runtime `.env`:
 

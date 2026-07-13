@@ -77,6 +77,58 @@ server {
     proxy_send_timeout 300s;
   }
 
+  location ^~ /geo_admin {
+    if ($magicball_shell_arg_granted = 1) {
+      add_header Set-Cookie "magicball_ai_gateway_shell=$arg_magicball_shell_access; Path=/; Max-Age=604800; Secure; HttpOnly; SameSite=None" always;
+      return 302 https://$host$uri;
+    }
+
+    proxy_pass ${GEOFLOW_ADMIN_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_cookie_flags ~ secure samesite=lax;
+    proxy_redirect http://$host/ https://$host/;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
+  location = /js/tailwindcss.play-cdn.js {
+    proxy_pass ${GEOFLOW_ADMIN_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
+  location = /js/lucide.min.js {
+    proxy_pass ${GEOFLOW_ADMIN_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
   location / {
     if ($magicball_shell_arg_granted = 1) {
       add_header Set-Cookie "magicball_ai_gateway_shell=$arg_magicball_shell_access; Path=/; Max-Age=604800; Secure; HttpOnly; SameSite=None" always;

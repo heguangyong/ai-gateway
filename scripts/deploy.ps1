@@ -6,6 +6,7 @@ param(
   [string]$User,
   [string]$IdentityFile = "",
   [string]$RemoteDir = "~/upservice-ai-gateway",
+  [string]$NewApiImage = "",
   [string]$ShellAccessTokenFile = "",
   [ValidateSet("", "public", "magicball-only")]
   [string]$AccessMode = "",
@@ -23,6 +24,10 @@ $LocalDeployScriptPath = Join-Path $env:TEMP ("upservice-ai-gateway-deploy-{0}.s
 $RemoteShellTokenPath = "/tmp/upservice-ai-gateway-shell-access-token"
 $RemoteSessionSecretPath = "/tmp/upservice-ai-gateway-session-secret"
 $Target = "{0}@{1}" -f $User, $HostName
+
+if ($NewApiImage -and $NewApiImage -notmatch '^[A-Za-z0-9][A-Za-z0-9._/@:-]*$') {
+  throw "NewApiImage must be a valid Docker image reference without whitespace."
+}
 
 function New-RuntimeSecret {
   $bytes = New-Object byte[] 32
@@ -107,6 +112,12 @@ set -e
 cd $RemoteDir
 tar -xf /tmp/upservice-ai-gateway.tar -C .
 cp -n .env.example .env
+if [ -n "$NewApiImage" ]; then
+  tmp_env="`$(mktemp)"
+  grep -v '^NEW_API_IMAGE=' .env > "`$tmp_env" || true
+  printf '\nNEW_API_IMAGE=$NewApiImage\n' >> "`$tmp_env"
+  mv "`$tmp_env" .env
+fi
 if [ -n "$AccessMode" ]; then
   tmp_env="`$(mktemp)"
   grep -v '^AI_GATEWAY_ACCESS_MODE=' .env > "`$tmp_env" || true

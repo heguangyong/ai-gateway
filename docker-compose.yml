@@ -1,6 +1,6 @@
 services:
   new-api-backend:
-    image: calciumion/new-api:latest
+    image: "${NEW_API_IMAGE:-calciumion/new-api:latest}"
     container_name: upservice-new-api-backend
     restart: unless-stopped
     command: --log-dir /app/logs
@@ -31,6 +31,8 @@ services:
     image: nginx:1.27-alpine
     container_name: upservice-ai-gateway-proxy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       new-api-backend:
         condition: service_healthy
@@ -39,6 +41,7 @@ services:
     environment:
       AI_GATEWAY_ACCESS_MODE: "${AI_GATEWAY_ACCESS_MODE:-public}"
       AI_GATEWAY_SHELL_ACCESS_TOKEN: "${AI_GATEWAY_SHELL_ACCESS_TOKEN:?set AI_GATEWAY_SHELL_ACCESS_TOKEN in the remote .env}"
+      GEOFLOW_ADMIN_UPSTREAM: "${GEOFLOW_ADMIN_UPSTREAM:-http://host.docker.internal:19740}"
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
     healthcheck:
