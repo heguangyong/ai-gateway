@@ -211,7 +211,7 @@ if [ "$TunnelMode" = "token" ]; then
     export CLOUDFLARE_TUNNEL_TOKEN
   fi
 fi
-docker compose $composeFiles pull
+docker compose $composeFiles pull k12-worker new-api-backend
 "@
 
   if (-not $NoStart) {

@@ -20,6 +20,7 @@ $checks = @(
   [pscustomobject]@{ key = "k12-worker-health-ordering"; passed = $compose.Contains("condition: service_healthy") -and $compose.Contains("http://127.0.0.1:8796/healthz") -and $compose.Contains("http://k12-worker:8796") },
   [pscustomobject]@{ key = "k12-worker-safe-defaults"; passed = $compose.Contains('K12_AUTOMATION_ENABLED: "${K12_AUTOMATION_ENABLED:-false}"') -and $compose.Contains('K12_SENTINEL_ENABLED: "${K12_SENTINEL_ENABLED:-false}"') -and $compose.Contains('K12_WEB_UI_ENABLED: "false"') },
   [pscustomobject]@{ key = "k12-runtime-secret"; passed = $compose.Contains("K12_INTERNAL_TOKEN") -and $deployScript.Contains("k12-internal-token.txt") -and $deployScript.Contains('$RemoteK12TokenPath') -and $deployScript.Contains("trap cleanup_runtime_secrets EXIT") },
+  [pscustomobject]@{ key = "application-images-only-pull"; passed = $deployScript.Contains('docker compose $composeFiles pull k12-worker new-api-backend') -and -not ([regex]::IsMatch($deployScript, '(?m)^docker compose \$composeFiles pull\s*$')) },
   [pscustomobject]@{ key = "host-port"; passed = $compose.Contains('${AI_GATEWAY_HOST_PORT:-33080}:3000') },
   [pscustomobject]@{ key = "proxy-service-name-compatible"; passed = $compose.Contains("container_name: upservice-ai-gateway-proxy") },
   [pscustomobject]@{ key = "backend-is-internal"; passed = $compose.Contains("new-api-backend") -and $compose.Contains("expose:") },

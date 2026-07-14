@@ -54,7 +54,7 @@ For the integrated K12 control plane, pin both images from the same source commi
 
 When supplied, `-NewApiImage` is persisted as `NEW_API_IMAGE` in the remote `.env` so later Compose operations use the same image.
 
-The script uploads this project to `~/upservice-ai-gateway`, runs `docker compose pull`, and starts `new-api`. It creates or reads the ignored local files below and syncs their values into the remote runtime `.env`:
+The script uploads this project to `~/upservice-ai-gateway`, pulls only the application and Worker images, and starts the integrated runtime. Existing Nginx and Cloudflare images are left unchanged during application updates. It creates or reads the ignored local files below and syncs their values into the remote runtime `.env`:
 
 ```text
 secrets/magicball-ai-gateway-shell-access-token.txt
