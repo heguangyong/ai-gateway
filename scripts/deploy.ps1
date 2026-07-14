@@ -157,6 +157,15 @@ if [ -n "$AccessMode" ]; then
   printf '\nAI_GATEWAY_ACCESS_MODE=$AccessMode\n' >> "`$tmp_env"
   mv "`$tmp_env" .env
 fi
+current_no_proxy="`$(sed -n 's/^AI_GATEWAY_NO_PROXY=//p' .env | tail -n 1)"
+case ",`$current_no_proxy," in
+  *,k12-worker,*) ;;
+  *) current_no_proxy="`$current_no_proxy`$([ -n "`$current_no_proxy" ] && printf ',')k12-worker" ;;
+esac
+tmp_env="`$(mktemp)"
+grep -v '^AI_GATEWAY_NO_PROXY=' .env > "`$tmp_env" || true
+printf '\nAI_GATEWAY_NO_PROXY=%s\n' "`$current_no_proxy" >> "`$tmp_env"
+mv "`$tmp_env" .env
 if [ -f "$RemoteShellTokenPath" ]; then
   if [ ! -s "$RemoteShellTokenPath" ]; then
     echo "AI_GATEWAY_SHELL_ACCESS_TOKEN is empty" >&2
