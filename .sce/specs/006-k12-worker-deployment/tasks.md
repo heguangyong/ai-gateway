@@ -22,7 +22,10 @@
 
 ## Phase 4: Canary and production
 
-- [ ] 4.1 Back up the current runtime and record active image digests.
+- [x] 4.1 Back up the current runtime and record active image digests.
 - [ ] 4.2 Deploy an isolated canary with separate Worker data paths.
+  - Not performed. The user explicitly authorized a direct production replacement on 2026-07-14.
 - [ ] 4.3 Review canary evidence and obtain user approval.
-- [ ] 4.4 Deploy pinned images to production and verify rollback.
+  - No canary evidence exists. Direct production approval and compensating checks are recorded in the deployment report.
+- [x] 4.4 Deploy pinned images to production and verify rollback.
+  - Deployment passed. Backup configuration, database integrity, and the retained previous image were verified; rollback was not exercised.

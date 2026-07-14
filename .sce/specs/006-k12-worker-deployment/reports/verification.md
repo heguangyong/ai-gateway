@@ -29,9 +29,9 @@ Both images were published by the same workflow run from the same source commit.
 
 Docker Compose runtime rendering was not executed locally because the Docker CLI is unavailable on this workstation. YAML parsing and explicit structural assertions cover the changed Compose contract.
 
-## 4. Release boundary
+## 4. Release progression
 
-- No canary or production host was contacted.
-- No change was deployed to host 151.
-- K12 automation, Sentinel, and the legacy Worker UI remain disabled by default.
-- Canary and production tasks remain pending user review and approval.
+- This file records the predeployment verification boundary at the time it was created.
+- A subsequent direct production deployment was explicitly authorized and completed on 2026-07-14.
+- K12 automation, Sentinel, and the legacy Worker UI remain disabled.
+- See `deployment-20260714.md` for deployment evidence and the documented canary exception.
