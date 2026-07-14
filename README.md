@@ -7,11 +7,14 @@ This public repository deliberately avoids environment-specific values such as h
 ## Components
 
 - Backend service: `new-api-backend:3000`
+- Internal automation service: `k12-worker:8796`
 - Proxy service: `new-api:3000`
 - Optional GEOFlow admin proxy: `/geo_admin`
 - Default host port: `33080`
 - Image: configured by `NEW_API_IMAGE` (defaults to `calciumion/new-api:latest`)
+- Worker image: configured by `K12_WORKER_IMAGE`
 - Persistent data: `./data/new-api`
+- Worker data: `./data/k12` and `./data/k12-json`
 - Runtime logs: `./logs/new-api`
 
 The deployment also keeps the `new-api` `SESSION_SECRET` in ignored runtime storage so browser sessions survive ordinary container restarts without committing the secret.
@@ -41,6 +44,14 @@ Pin a tested image for production deployments:
 .\scripts\deploy.ps1 -HostName <host> -Port <ssh-port> -User <ssh-user> -IdentityFile <private-key> -NewApiImage ghcr.io/<owner>/new-api:sha-<commit>
 ```
 
+For the integrated K12 control plane, pin both images from the same source commit. Digest references are preferred for canary and production:
+
+```powershell
+.\scripts\deploy.ps1 -HostName <host> -Port <ssh-port> -User <ssh-user> -IdentityFile <private-key> `
+  -NewApiImage ghcr.io/<owner>/new-api@sha256:<digest> `
+  -K12WorkerImage ghcr.io/<owner>/new-api-k12-worker@sha256:<digest>
+```
+
 When supplied, `-NewApiImage` is persisted as `NEW_API_IMAGE` in the remote `.env` so later Compose operations use the same image.
 
 The script uploads this project to `~/upservice-ai-gateway`, runs `docker compose pull`, and starts `new-api`. It creates or reads the ignored local files below and syncs their values into the remote runtime `.env`:
@@ -48,7 +59,10 @@ The script uploads this project to `~/upservice-ai-gateway`, runs `docker compos
 ```text
 secrets/magicball-ai-gateway-shell-access-token.txt
 secrets/new-api-session-secret.txt
+secrets/k12-internal-token.txt
 ```
+
+The K12 Worker is internal-only and has no host port. `K12_AUTOMATION_ENABLED` and `K12_SENTINEL_ENABLED` default to `false`; keep them disabled until the canary and compliance review are complete.
 
 To explicitly switch access mode during deploy:
 

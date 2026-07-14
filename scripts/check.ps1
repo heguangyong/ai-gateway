@@ -15,6 +15,11 @@ $localPathPattern = "[A-Za-z]:\\Users\\[^\\\s]+|[A-Za-z]:\\[^<\s]+"
 
 $checks = @(
   [pscustomobject]@{ key = "new-api-image"; passed = $compose.Contains('${NEW_API_IMAGE:-calciumion/new-api:latest}') -and $envExample.Contains("NEW_API_IMAGE=calciumion/new-api:latest") -and $deployScript.Contains('$NewApiImage') -and $deployScript.Contains("^NEW_API_IMAGE=") },
+  [pscustomobject]@{ key = "k12-worker-image"; passed = $compose.Contains('${K12_WORKER_IMAGE:-ghcr.io/heguangyong/new-api-k12-worker:k12-worker-integrated}') -and $envExample.Contains("K12_WORKER_IMAGE=ghcr.io/heguangyong/new-api-k12-worker:k12-worker-integrated") -and $deployScript.Contains('$K12WorkerImage') -and $deployScript.Contains("^K12_WORKER_IMAGE=") },
+  [pscustomobject]@{ key = "k12-worker-internal-only"; passed = $compose.Contains("k12-worker:") -and $compose.Contains('      - "8796"') -and -not $compose.Contains('${K12_WORKER_HOST_PORT') },
+  [pscustomobject]@{ key = "k12-worker-health-ordering"; passed = $compose.Contains("condition: service_healthy") -and $compose.Contains("http://127.0.0.1:8796/healthz") -and $compose.Contains("http://k12-worker:8796") },
+  [pscustomobject]@{ key = "k12-worker-safe-defaults"; passed = $compose.Contains('K12_AUTOMATION_ENABLED: "${K12_AUTOMATION_ENABLED:-false}"') -and $compose.Contains('K12_SENTINEL_ENABLED: "${K12_SENTINEL_ENABLED:-false}"') -and $compose.Contains('K12_WEB_UI_ENABLED: "false"') },
+  [pscustomobject]@{ key = "k12-runtime-secret"; passed = $compose.Contains("K12_INTERNAL_TOKEN") -and $deployScript.Contains("k12-internal-token.txt") -and $deployScript.Contains('$RemoteK12TokenPath') -and $deployScript.Contains("trap cleanup_runtime_secrets EXIT") },
   [pscustomobject]@{ key = "host-port"; passed = $compose.Contains('${AI_GATEWAY_HOST_PORT:-33080}:3000') },
   [pscustomobject]@{ key = "proxy-service-name-compatible"; passed = $compose.Contains("container_name: upservice-ai-gateway-proxy") },
   [pscustomobject]@{ key = "backend-is-internal"; passed = $compose.Contains("new-api-backend") -and $compose.Contains("expose:") },
@@ -27,6 +32,7 @@ $checks = @(
   [pscustomobject]@{ key = "unauthenticated-403-html"; passed = $nginxTemplate.Contains("default_type text/html") -and $nginxTemplate.Contains("Direct browser visits are intentionally blocked") },
   [pscustomobject]@{ key = "temporary-browser-cookie-grant"; passed = $nginxTemplate.Contains('$arg_magicball_shell_access') -and $nginxTemplate.Contains("Max-Age=604800") -and $nginxTemplate.Contains('return 302 https://$host$uri') },
   [pscustomobject]@{ key = "data-volume"; passed = $compose.Contains("./data/new-api:/data") },
+  [pscustomobject]@{ key = "k12-data-volumes"; passed = $compose.Contains("./data/k12:/worker/data") -and $compose.Contains("./data/k12-json:/worker/json") },
   [pscustomobject]@{ key = "deployment-target-parameterized"; passed = $readme.Contains("-HostName <host>") -and $cloudflared.Contains("hostname: <public-hostname>") },
   [pscustomobject]@{ key = "no-public-private-targets"; passed = -not ($publicText -match $privateHostPattern) -and -not ($publicText -match $localPathPattern) },
   [pscustomobject]@{ key = "no-secret-values"; passed = -not ($compose -match "(?i)(sk-[a-z0-9]|api[_-]?key\\s*=\\s*[^#\\s]+|token\\s*=\\s*[^#\\s]+|password\\s*=\\s*[^#\\s]+)") },

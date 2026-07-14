@@ -4,7 +4,12 @@
 /logs/
 /moqui_logs/
 /secrets/
-/.sce/
+# Keep SCE runtime state local while allowing the governed deployment spec.
+/.sce/*
+!/.sce/specs/
+/.sce/specs/*
+!/.sce/specs/006-k12-worker-deployment/
+!/.sce/specs/006-k12-worker-deployment/**
 
 *.tar
 *.tgz

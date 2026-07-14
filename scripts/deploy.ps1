@@ -7,7 +7,9 @@ param(
   [string]$IdentityFile = "",
   [string]$RemoteDir = "~/upservice-ai-gateway",
   [string]$NewApiImage = "",
+  [string]$K12WorkerImage = "",
   [string]$ShellAccessTokenFile = "",
+  [string]$K12InternalTokenFile = "",
   [ValidateSet("", "public", "magicball-only")]
   [string]$AccessMode = "",
   [ValidateSet("none", "config", "token")]
@@ -23,10 +25,14 @@ $RemoteDeployScriptPath = "/tmp/upservice-ai-gateway-deploy-{0}.sh" -f ([guid]::
 $LocalDeployScriptPath = Join-Path $env:TEMP ("upservice-ai-gateway-deploy-{0}.sh" -f ([guid]::NewGuid().ToString("N")))
 $RemoteShellTokenPath = "/tmp/upservice-ai-gateway-shell-access-token"
 $RemoteSessionSecretPath = "/tmp/upservice-ai-gateway-session-secret"
+$RemoteK12TokenPath = "/tmp/upservice-ai-gateway-k12-internal-token"
 $Target = "{0}@{1}" -f $User, $HostName
 
 if ($NewApiImage -and $NewApiImage -notmatch '^[A-Za-z0-9][A-Za-z0-9._/@:-]*$') {
   throw "NewApiImage must be a valid Docker image reference without whitespace."
+}
+if ($K12WorkerImage -and $K12WorkerImage -notmatch '^[A-Za-z0-9][A-Za-z0-9._/@:-]*$') {
+  throw "K12WorkerImage must be a valid Docker image reference without whitespace."
 }
 
 function New-RuntimeSecret {
@@ -69,6 +75,22 @@ if (-not ($SessionSecret -match '^[A-Za-z0-9._~-]{32,}$')) {
   throw "New API session secret file must contain at least 32 URL-safe characters."
 }
 
+if (-not $K12InternalTokenFile) {
+  $K12InternalTokenFile = Join-Path $ProjectRoot "secrets\k12-internal-token.txt"
+}
+$K12InternalTokenFile = [System.IO.Path]::GetFullPath($K12InternalTokenFile)
+if (-not (Test-Path $K12InternalTokenFile)) {
+  $k12TokenDir = Split-Path $K12InternalTokenFile -Parent
+  if ($k12TokenDir -and -not (Test-Path $k12TokenDir)) {
+    New-Item -ItemType Directory -Force -Path $k12TokenDir | Out-Null
+  }
+  Set-Content -Path $K12InternalTokenFile -Value (New-RuntimeSecret) -NoNewline -Encoding ascii
+}
+$K12InternalToken = (Get-Content -Path $K12InternalTokenFile -Raw).Trim()
+if (-not ($K12InternalToken -match '^[A-Za-z0-9._~-]{32,}$')) {
+  throw "K12 internal token file must contain at least 32 URL-safe characters."
+}
+
 $sshArgs = @("-p", "$Port", "-o", "StrictHostKeyChecking=accept-new", "-o", "ServerAliveInterval=30")
 $scpArgs = @("-P", "$Port", "-o", "StrictHostKeyChecking=accept-new")
 if ($IdentityFile) {
@@ -97,6 +119,7 @@ try {
   scp @scpArgs $Archive "${Target}:/tmp/upservice-ai-gateway.tar"
   scp @scpArgs $ShellAccessTokenFile "${Target}:$RemoteShellTokenPath"
   scp @scpArgs $SessionSecretFile "${Target}:$RemoteSessionSecretPath"
+  scp @scpArgs $K12InternalTokenFile "${Target}:$RemoteK12TokenPath"
 
   $composeFiles = "-f docker-compose.yml"
   if ($TunnelMode -eq "config") {
@@ -109,6 +132,10 @@ try {
 
   $remote = @"
 set -e
+cleanup_runtime_secrets() {
+  rm -f "$RemoteShellTokenPath" "$RemoteSessionSecretPath" "$RemoteK12TokenPath"
+}
+trap cleanup_runtime_secrets EXIT
 cd $RemoteDir
 tar -xf /tmp/upservice-ai-gateway.tar -C .
 cp -n .env.example .env
@@ -116,6 +143,12 @@ if [ -n "$NewApiImage" ]; then
   tmp_env="`$(mktemp)"
   grep -v '^NEW_API_IMAGE=' .env > "`$tmp_env" || true
   printf '\nNEW_API_IMAGE=$NewApiImage\n' >> "`$tmp_env"
+  mv "`$tmp_env" .env
+fi
+if [ -n "$K12WorkerImage" ]; then
+  tmp_env="`$(mktemp)"
+  grep -v '^K12_WORKER_IMAGE=' .env > "`$tmp_env" || true
+  printf '\nK12_WORKER_IMAGE=$K12WorkerImage\n' >> "`$tmp_env"
   mv "`$tmp_env" .env
 fi
 if [ -n "$AccessMode" ]; then
@@ -152,6 +185,20 @@ if [ -f "$RemoteSessionSecretPath" ]; then
   mv "`$tmp_env" .env
   rm -f "`$tmp_env" "$RemoteSessionSecretPath"
 fi
+if [ -f "$RemoteK12TokenPath" ]; then
+  if [ ! -s "$RemoteK12TokenPath" ]; then
+    echo "K12_INTERNAL_TOKEN is empty" >&2
+    rm -f "$RemoteK12TokenPath"
+    exit 1
+  fi
+  tmp_env="`$(mktemp)"
+  grep -v '^K12_INTERNAL_TOKEN=' .env > "`$tmp_env" || true
+  printf '\nK12_INTERNAL_TOKEN=' >> "`$tmp_env"
+  tr -d '\015\012' < "$RemoteK12TokenPath" >> "`$tmp_env"
+  printf '\n' >> "`$tmp_env"
+  mv "`$tmp_env" .env
+  rm -f "`$tmp_env" "$RemoteK12TokenPath"
+fi
 if [ "$TunnelMode" = "config" ] && [ ! -f cloudflared.yml ]; then
   cp cloudflared.yml.example cloudflared.yml
 fi
@@ -170,7 +217,7 @@ docker compose $composeFiles pull
   if (-not $NoStart) {
     $remote += @"
 
-docker compose $composeFiles up -d$removeOrphansArg --force-recreate new-api new-api-backend
+docker compose $composeFiles up -d$removeOrphansArg --force-recreate k12-worker new-api-backend new-api
 docker compose $composeFiles up -d$removeOrphansArg
 docker compose $composeFiles ps
 "@

@@ -1,9 +1,41 @@
 services:
+  k12-worker:
+    image: "${K12_WORKER_IMAGE:-ghcr.io/heguangyong/new-api-k12-worker:k12-worker-integrated}"
+    container_name: upservice-k12-worker
+    restart: unless-stopped
+    expose:
+      - "8796"
+    volumes:
+      - ./data/k12:/worker/data
+      - ./data/k12-json:/worker/json
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8796"
+      TZ: "${TZ:-Asia/Shanghai}"
+      K12_INTERNAL_TOKEN: "${K12_INTERNAL_TOKEN:?set K12_INTERNAL_TOKEN in the remote .env}"
+      K12_AUTOMATION_ENABLED: "${K12_AUTOMATION_ENABLED:-false}"
+      K12_SENTINEL_ENABLED: "${K12_SENTINEL_ENABLED:-false}"
+      K12_WEB_UI_ENABLED: "false"
+      http_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      https_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      HTTP_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      HTTPS_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
+      no_proxy: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,k12-worker,172.16.0.0/12,192.168.0.0/16}"
+      NO_PROXY: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,k12-worker,172.16.0.0/12,192.168.0.0/16}"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8796/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   new-api-backend:
     image: "${NEW_API_IMAGE:-calciumion/new-api:latest}"
     container_name: upservice-new-api-backend
     restart: unless-stopped
     command: --log-dir /app/logs
+    depends_on:
+      k12-worker:
+        condition: service_healthy
     expose:
       - "3000"
     volumes:
@@ -15,12 +47,15 @@ services:
       BATCH_UPDATE_ENABLED: "${BATCH_UPDATE_ENABLED:-true}"
       NODE_NAME: "${NODE_NAME:-upservice-ai-gateway}"
       SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET in the remote .env}"
+      K12_WORKER_URL: "http://k12-worker:8796"
+      K12_INTERNAL_TOKEN: "${K12_INTERNAL_TOKEN:?set K12_INTERNAL_TOKEN in the remote .env}"
+      K12_WORKER_TIMEOUT: "${K12_WORKER_TIMEOUT:-10m}"
       http_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
       https_proxy: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
       HTTP_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
       HTTPS_PROXY: "${AI_GATEWAY_OUTBOUND_PROXY:-}"
-      no_proxy: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,172.16.0.0/12,192.168.0.0/16}"
-      NO_PROXY: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,172.16.0.0/12,192.168.0.0/16}"
+      no_proxy: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,k12-worker,172.16.0.0/12,192.168.0.0/16}"
+      NO_PROXY: "${AI_GATEWAY_NO_PROXY:-localhost,127.0.0.1,::1,new-api,new-api-backend,k12-worker,172.16.0.0/12,192.168.0.0/16}"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
       interval: 30s
