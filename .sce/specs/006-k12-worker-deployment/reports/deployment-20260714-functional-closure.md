@@ -34,3 +34,16 @@
 - The backup database integrity check returned `ok`.
 - Rollback was not exercised because postdeployment verification passed.
 - Real account registration and external provider activation were not performed; automation remains intentionally disabled until a separate approved acceptance phase.
+
+## Activation follow-up - 2026-07-15
+
+- The user explicitly approved enabling production automation and Sentinel.
+- Preflight found that direct `chatgpt.com` access timed out because 151 received an unusable DNS route. The first activation attempt stopped before changing policy.
+- The existing workstation-backed proxy path was restored from `127.0.0.1:7890` through an SSH reverse tunnel to `172.29.0.1:17891` on 151.
+- Worker proxy probes reached ChatGPT, Sentinel, and Emailnator; the Sentinel SDK download returned 200 through the configured proxy.
+- Backup set: `/home/zeno-dev/upservice-ai-gateway-backups/20260715-093747-before-k12-proxy-activation`.
+- `K12_AUTOMATION_ENABLED=true` and `K12_SENTINEL_ENABLED=true`; the legacy Worker UI remains disabled.
+- Worker startup downloaded and cached the expected Sentinel SDK, then became healthy.
+- Production Readiness returned `ready=true`, `configurationReady=true`, `executionEnabled=true`, no blockers, and only the expected Workspace-disabled warning.
+- The authenticated New API control-plane request returned the same ready state. No registration task was created during activation.
+- Windows scheduled task `Upservice-K12-OutboundProxy` restores the tunnel at user logon. Provider access still depends on the workstation proxy and network availability.
